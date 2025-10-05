@@ -22,17 +22,24 @@ class MeteomaticsService extends BaseApiService {
    */
   async fetchWeatherData(lat, lon, targetDate) {
     try {
-      // Note: Direct browser calls to Meteomatics API are blocked by CORS
-      // This would work in a backend environment
-      console.warn('CORS prevents direct Meteomatics API calls from browser. Using enhanced simulation.');
+      console.log(`Fetching Meteomatics weather data for ${lat}, ${lon} on ${targetDate}`);
       
-      // In production, this would make actual API calls through a backend proxy
-      // return await this.fetchActualMeteomaticsData(lat, lon, targetDate);
+      // Validate coordinates
+      if (!this.isValidCoordinates(lat, lon)) {
+        throw new Error('Invalid coordinates provided');
+      }
+
+      // Due to CORS restrictions in browser, we'll use enhanced simulation
+      // In production, this should go through a backend proxy
+      console.log('⚠️ Using enhanced weather simulation due to CORS restrictions');
       
-      // For now, return enhanced simulation
       return this.generateEnhancedWeatherData(lat, lon, targetDate);
+
     } catch (error) {
       console.error('Meteomatics API error:', error);
+      console.log('🔄 Falling back to enhanced weather simulation...');
+      
+      // Fallback to enhanced simulation
       return this.generateEnhancedWeatherData(lat, lon, targetDate);
     }
   }

@@ -11,7 +11,7 @@ import {
   Info
 } from 'lucide-react';
 import L from 'leaflet';
-import { weatherService } from '../services/weatherService';
+import DisasterTrackingService from '../services/api/disasterTrackingService';
 
 // Custom marker icons for different event types
 const createCustomIcon = (emoji, severity) => {
@@ -51,15 +51,24 @@ const StormTracker = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSeverity, setSelectedSeverity] = useState('all');
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [error, setError] = useState('');
+
+  // Initialize disaster tracking service
+  const disasterService = new DisasterTrackingService();
 
   const fetchEvents = async () => {
     setLoading(true);
+    setError('');
     try {
-      const eventData = await weatherService.getDisasterEvents(30);
-      setEvents(eventData);
+      console.log('🌪️ Fetching NASA EONET disaster events...');
+      const eventData = await disasterService.fetchDisasterEvents(30, 'open');
+      console.log('📊 Received disaster events:', eventData);
+      setEvents(eventData || []);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Error fetching events:', error);
+      console.error('❌ Error fetching disaster events:', error);
+      setError('Failed to load disaster events. Please try again.');
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -78,6 +87,11 @@ const StormTracker = () => {
   const categories = [...new Set(events.map(event => event.categoryId))];
   const severityLevels = ['low', 'moderate', 'high'];
 
+  // Get event icon using disaster service
+  const getEventIcon = (categoryId) => {
+    return disasterService.getEventIcon(categoryId);
+  };
+
   const getSeverityColor = (severity) => {
     const colors = {
       high: 'text-red-600 bg-red-50 border-red-200',
@@ -89,21 +103,24 @@ const StormTracker = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Zap className="h-8 w-8 text-red-500" />
+      {/* Page Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-12 sm:h-16">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">NASA Storm Tracker</h1>
-                <p className="text-sm text-gray-600">Real-time natural disaster monitoring</p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">
+                  <span className="hidden sm:inline">NASA Storm Tracker</span>
+                  <span className="sm:hidden">Storm Tracker</span>
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Real-time natural disaster monitoring</p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               {lastUpdated && (
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
                   <Calendar className="h-4 w-4" />
                   <span>Updated: {lastUpdated.toLocaleTimeString()}</span>
                 </div>
@@ -112,17 +129,35 @@ const StormTracker = () => {
               <button
                 onClick={fetchEvents}
                 disabled={loading}
-                className="btn-primary inline-flex items-center space-x-2"
+                className="btn-primary inline-flex items-center space-x-1 sm:space-x-2 text-sm"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                <span>Refresh</span>
+                <span className="hidden sm:inline">Refresh</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="mb-6 text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto mb-4"></div>
+            <p className="text-sm text-gray-600">Loading NASA disaster events...</p>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Filters Sidebar */}
           <div className="lg:col-span-1">
@@ -222,7 +257,7 @@ const StormTracker = () => {
                         key={event.id}
                         position={[event.coordinates.lat, event.coordinates.lon]}
                         icon={createCustomIcon(
-                          weatherService.getDisasterEventIcon(event.categoryId),
+                          getEventIcon(event.categoryId),
                           event.severity
                         )}
                       >
@@ -304,7 +339,7 @@ const StormTracker = () => {
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
                           <span className="text-xl">
-                            {weatherService.getDisasterEventIcon(event.categoryId)}
+                            {getEventIcon(event.categoryId)}
                           </span>
                           <h4 className="font-medium text-gray-900">{event.title}</h4>
                           <span className={`px-2 py-1 rounded text-xs font-medium border ${getSeverityColor(event.severity)}`}>

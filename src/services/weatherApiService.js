@@ -250,8 +250,8 @@ class WeatherApiService {
     const enhanced = {
       dataIntegration: {
         nasaPowerAvailable: !!weatherAnalysis.daily && Object.keys(weatherAnalysis.daily).length > 0,
-        gpmPrecipitationAvailable: !!weatherAnalysis.precipitation,
-        smapSoilMoistureAvailable: !!weatherAnalysis.soilMoisture,
+        gpmPrecipitationAvailable: !!weatherAnalysis.precipitation && !!weatherAnalysis.precipitation.data,
+        smapSoilMoistureAvailable: !!weatherAnalysis.soilMoisture && !!weatherAnalysis.soilMoisture.data,
         spaceWeatherAvailable: !!weatherAnalysis.spaceWeather
       },
       crossValidation: {},
@@ -260,11 +260,34 @@ class WeatherApiService {
     };
 
     try {
+      console.log('🔍 Data integration status:', enhanced.dataIntegration);
+      
       // Cross-validate precipitation data between NASA POWER and GPM
       if (enhanced.dataIntegration.nasaPowerAvailable && enhanced.dataIntegration.gpmPrecipitationAvailable) {
+        console.log('🔄 Starting precipitation cross-validation...');
+        console.log('📊 Data sources:', {
+          powerData: !!weatherAnalysis.daily.PRECTOTCORR,
+          gpmData: !!weatherAnalysis.precipitation?.data,
+          powerKeys: weatherAnalysis.daily.PRECTOTCORR ? Object.keys(weatherAnalysis.daily.PRECTOTCORR).length : 0,
+          gpmKeys: weatherAnalysis.precipitation?.data ? Object.keys(weatherAnalysis.precipitation.data).length : 0
+        });
+        
         enhanced.crossValidation.precipitation = this.validatePrecipitationData(
           weatherAnalysis.daily.PRECTOTCORR,
           weatherAnalysis.precipitation.data
+        );
+      } else {
+        console.log('⚠️ Precipitation cross-validation with limited data:', {
+          nasaPowerAvailable: enhanced.dataIntegration.nasaPowerAvailable,
+          gpmPrecipitationAvailable: enhanced.dataIntegration.gpmPrecipitationAvailable,
+          reason: !enhanced.dataIntegration.nasaPowerAvailable ? 'NASA POWER data missing' : 
+                  !enhanced.dataIntegration.gpmPrecipitationAvailable ? 'GPM data missing' : 'unknown'
+        });
+        
+        // Still perform validation to show status and provide helpful messages
+        enhanced.crossValidation.precipitation = this.validatePrecipitationData(
+          enhanced.dataIntegration.nasaPowerAvailable ? weatherAnalysis.daily.PRECTOTCORR : null,
+          enhanced.dataIntegration.gpmPrecipitationAvailable ? weatherAnalysis.precipitation?.data : null
         );
       }
 
@@ -310,44 +333,175 @@ class WeatherApiService {
    * Validate precipitation data between NASA POWER and GPM
    */
   validatePrecipitationData(powerPrecip, gpmPrecip) {
-    if (!powerPrecip || !gpmPrecip) return null;
+    console.log('🌧️ Validating precipitation data:', {
+      powerPrecipType: typeof powerPrecip,
+      gpmPrecipType: typeof gpmPrecip,
+      powerKeys: powerPrecip ? Object.keys(powerPrecip).slice(0, 3) : 'null',
+      gpmKeys: gpmPrecip ? Object.keys(gpmPrecip).slice(0, 3) : 'null',
+      powerSample: powerPrecip ? Object.entries(powerPrecip).slice(0, 2) : 'null',
+      gpmSample: gpmPrecip ? Object.entries(gpmPrecip).slice(0, 2) : 'null'
+    });
+
+    // Handle missing data with better fallback
+    if (!powerPrecip && !gpmPrecip) {
+      console.log('⚠️ Both NASA POWER and GPM IMERG precipitation data unavailable');
+      return {
+        correlation: 0,
+        averageDifference: 0,
+        agreement: 'no data available',
+        dataPoints: 0,
+        status: 'both_missing',
+        message: 'Both NASA POWER and GPM IMERG APIs are currently unavailable. Using simulated precipitation patterns.'
+      };
+    }
+
+    if (!powerPrecip) {
+      console.log('⚠️ NASA POWER precipitation data unavailable, GPM IMERG available');
+      return {
+        correlation: 0,
+        averageDifference: 0,
+        agreement: 'partial data',
+        dataPoints: gpmPrecip ? Object.keys(gpmPrecip).length : 0,
+        status: 'power_missing',
+        message: 'NASA POWER API unavailable. Using GPM IMERG satellite data only.'
+      };
+    }
+
+    if (!gpmPrecip) {
+      console.log('⚠️ GPM IMERG precipitation data unavailable, NASA POWER available');
+      return {
+        correlation: 0,
+        averageDifference: 0,
+        agreement: 'partial data',
+        dataPoints: powerPrecip ? Object.keys(powerPrecip).length : 0,
+        status: 'gpm_missing',
+        message: 'GPM IMERG API unavailable. Using NASA POWER ground-based data only.'
+      };
+    }
 
     const validation = {
       correlation: 0,
       averageDifference: 0,
-      agreement: 'unknown'
+      agreement: 'unknown',
+      dataPoints: 0
     };
 
     try {
-      const commonDates = Object.keys(powerPrecip).filter(date => gpmPrecip[date]);
+      const powerDates = Object.keys(powerPrecip);
+      const gpmDates = Object.keys(gpmPrecip);
+      const commonDates = powerDates.filter(date => gpmPrecip[date] !== undefined);
       
-      if (commonDates.length > 0) {
-        const powerValues = commonDates.map(date => powerPrecip[date] || 0);
-        const gpmValues = commonDates.map(date => gpmPrecip[date].precipitation || 0);
+      console.log(`📊 Data comparison: POWER has ${powerDates.length} dates, GPM has ${gpmDates.length} dates, ${commonDates.length} common dates`);
+      console.log('📅 Date format comparison:', {
+        powerSampleDates: powerDates.slice(0, 5),
+        gpmSampleDates: gpmDates.slice(0, 5),
+        powerDateRange: powerDates.length > 0 ? `${powerDates[0]} to ${powerDates[powerDates.length - 1]}` : 'no dates',
+        gpmDateRange: gpmDates.length > 0 ? `${gpmDates[0]} to ${gpmDates[gpmDates.length - 1]}` : 'no dates'
+      });
+      
+      
+      // If no direct overlap, try with date format conversion
+      let finalCommonDates = commonDates;
+      let powerData = powerPrecip;
+      let gpmData = gpmPrecip;
+      
+      if (commonDates.length === 0 && powerDates.length > 0 && gpmDates.length > 0) {
+        console.log('🔄 Attempting date format conversion for cross-validation...');
+        
+        // Create normalized date mappings
+        const normalizedPowerData = {};
+        const normalizedGpmData = {};
+        
+        // Normalize POWER dates
+        powerDates.forEach(date => {
+          let normalizedDate = date;
+          if (date.length === 8 && !date.includes('-')) {
+            // Convert YYYYMMDD to YYYY-MM-DD
+            normalizedDate = `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
+          }
+          normalizedPowerData[normalizedDate] = powerPrecip[date];
+        });
+        
+        // Normalize GPM dates
+        gpmDates.forEach(date => {
+          let normalizedDate = date;
+          if (date.length === 8 && !date.includes('-')) {
+            // Convert YYYYMMDD to YYYY-MM-DD
+            normalizedDate = `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
+          }
+          normalizedGpmData[normalizedDate] = gpmPrecip[date];
+        });
+        
+        // Find overlap with normalized dates
+        const normalizedPowerDates = Object.keys(normalizedPowerData);
+        const normalizedCommonDates = normalizedPowerDates.filter(date => normalizedGpmData[date] !== undefined);
+        
+        if (normalizedCommonDates.length > 0) {
+          console.log(`✅ Found ${normalizedCommonDates.length} overlapping dates after normalization`);
+          finalCommonDates = normalizedCommonDates;
+          powerData = normalizedPowerData;
+          gpmData = normalizedGpmData;
+        }
+      }
+      
+      if (finalCommonDates.length > 0) {
+        const powerValues = finalCommonDates.map(date => {
+          const val = powerData[date];
+          return typeof val === 'number' ? val : 0;
+        });
+        
+        const gpmValues = finalCommonDates.map(date => {
+          const gpmEntry = gpmData[date];
+          // Handle different GPM data structures
+          if (typeof gpmEntry === 'number') {
+            return gpmEntry;
+          } else if (gpmEntry && typeof gpmEntry === 'object') {
+            return gpmEntry.precipitation || gpmEntry.value || gpmEntry.precip || 0;
+          }
+          return 0;
+        });
+        
+        console.log('📈 Sample values for validation:', {
+          powerSample: powerValues.slice(0, 5),
+          gpmSample: gpmValues.slice(0, 5),
+          powerAvg: powerValues.reduce((a, b) => a + b, 0) / powerValues.length,
+          gpmAvg: gpmValues.reduce((a, b) => a + b, 0) / gpmValues.length
+        });
         
         // Calculate correlation
-        validation.correlation = this.calculateCorrelation(powerValues, gpmValues);
+        const rawCorrelation = this.calculateCorrelation(powerValues, gpmValues);
+        validation.correlation = Math.round(rawCorrelation * 100); // Convert to percentage
+        validation.dataPoints = finalCommonDates.length;
         
         // Calculate average difference
         const differences = powerValues.map((val, i) => Math.abs(val - gpmValues[i]));
         validation.averageDifference = differences.reduce((sum, diff) => sum + diff, 0) / differences.length;
         
-        // Determine agreement level
-        if (validation.correlation > 0.7) {
+        // Determine agreement level (using percentage values)
+        if (validation.correlation > 70) {
           validation.agreement = 'excellent';
-        } else if (validation.correlation > 0.5) {
+        } else if (validation.correlation > 50) {
           validation.agreement = 'good';
-        } else if (validation.correlation > 0.3) {
+        } else if (validation.correlation > 30) {
           validation.agreement = 'moderate';
-        } else {
+        } else if (validation.correlation > 10) {
           validation.agreement = 'poor';
+        } else {
+          validation.agreement = 'very poor';
         }
+        
+        console.log('✅ Precipitation validation complete:', validation);
+      } else {
+        console.log('⚠️ No common dates found between POWER and GPM data, even after format conversion');
+        validation.agreement = 'no overlap';
+        validation.dataPoints = 0;
       }
 
       return validation;
 
     } catch (error) {
-      console.error('Precipitation validation error:', error);
+      console.error('❌ Precipitation validation error:', error);
+      validation.agreement = 'error';
       return validation;
     }
   }

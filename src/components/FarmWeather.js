@@ -30,7 +30,7 @@ import {
   Compass
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { weatherService } from '../services/weatherService';
+import weatherApiService from '../services/weatherApiService';
 import { weatherCalculations } from '../utils/weatherCalculations';
 import NasaAgriculturalService from '../services/api/nasaAgriculturalService';
 import { alertService } from '../services/alertService';
@@ -130,35 +130,219 @@ const FarmWeather = () => {
     }
   ];
 
-  // Philippines agricultural regions
-  const agriculturalRegions = [
-    { name: 'Bukidnon', country: 'Philippines', lat: 8.1390, lon: 125.1277, type: 'province', crops: ['corn', 'rice', 'vegetables'] },
-    { name: 'Nueva Ecija', country: 'Philippines', lat: 15.5784, lon: 121.1113, type: 'province', crops: ['rice', 'corn'] },
-    { name: 'Isabela', country: 'Philippines', lat: 16.9754, lon: 121.8077, type: 'province', crops: ['rice', 'corn', 'vegetables'] },
-    { name: 'Pangasinan', country: 'Philippines', lat: 15.8949, lon: 120.2863, type: 'province', crops: ['rice', 'corn'] },
-    { name: 'Negros Occidental', country: 'Philippines', lat: 10.6767, lon: 122.9511, type: 'province', crops: ['sugarcane', 'rice'] },
-    { name: 'Davao del Sur', country: 'Philippines', lat: 6.7763, lon: 125.6050, type: 'province', crops: ['banana', 'coconut', 'corn'] },
-    { name: 'Cotabato', country: 'Philippines', lat: 7.2231, lon: 124.2452, type: 'province', crops: ['rice', 'corn', 'coconut'] },
-    { name: 'Valencia City', country: 'Philippines', lat: 7.9064, lon: 125.0945, type: 'city', crops: ['corn', 'vegetables', 'rice'] },
-    { name: 'Cagayan Valley', country: 'Philippines', lat: 17.6129, lon: 121.7270, type: 'region', crops: ['rice', 'corn', 'vegetables'] },
-    { name: 'Central Luzon', country: 'Philippines', lat: 15.4817, lon: 120.9718, type: 'region', crops: ['rice', 'corn', 'sugarcane'] }
-  ];
+  // Global agricultural regions database with major farming areas worldwide
+  const getGlobalAgriculturalRegions = () => {
+    return [
+      // Philippines
+      { name: 'Bukidnon', country: 'Philippines', lat: 8.1390, lon: 125.1277, type: 'province', crops: ['corn', 'rice', 'vegetables'], climate: 'tropical' },
+      { name: 'Nueva Ecija', country: 'Philippines', lat: 15.5784, lon: 121.1113, type: 'province', crops: ['rice', 'corn'], climate: 'tropical' },
+      { name: 'Isabela', country: 'Philippines', lat: 16.9754, lon: 121.8077, type: 'province', crops: ['rice', 'corn', 'vegetables'], climate: 'tropical' },
+      { name: 'Pangasinan', country: 'Philippines', lat: 15.8949, lon: 120.2863, type: 'province', crops: ['rice', 'corn'], climate: 'tropical' },
+      { name: 'Negros Occidental', country: 'Philippines', lat: 10.6767, lon: 122.9511, type: 'province', crops: ['sugarcane', 'rice'], climate: 'tropical' },
+      { name: 'Davao del Sur', country: 'Philippines', lat: 6.7763, lon: 125.6050, type: 'province', crops: ['banana', 'coconut', 'corn'], climate: 'tropical' },
+      { name: 'Cotabato', country: 'Philippines', lat: 7.2231, lon: 124.2452, type: 'province', crops: ['rice', 'corn', 'coconut'], climate: 'tropical' },
+      { name: 'Valencia City', country: 'Philippines', lat: 7.9064, lon: 125.0945, type: 'city', crops: ['corn', 'vegetables', 'rice'], climate: 'tropical' },
+      { name: 'Cagayan Valley', country: 'Philippines', lat: 17.6129, lon: 121.7270, type: 'region', crops: ['rice', 'corn', 'vegetables'], climate: 'tropical' },
+      { name: 'Central Luzon', country: 'Philippines', lat: 15.4817, lon: 120.9718, type: 'region', crops: ['rice', 'corn', 'sugarcane'], climate: 'tropical' },
 
-  const searchLocation = (query) => {
-    if (!query.trim()) return [];
-    const searchTerm = query.toLowerCase();
-    return agriculturalRegions.filter(location => 
-      location.name.toLowerCase().includes(searchTerm) ||
-      location.country.toLowerCase().includes(searchTerm)
-    ).slice(0, 6);
+      // United States - Major Agricultural Regions
+      { name: 'Iowa', country: 'United States', lat: 41.8780, lon: -93.0977, type: 'state', crops: ['corn', 'soybeans', 'pork'], climate: 'continental' },
+      { name: 'Nebraska', country: 'United States', lat: 41.4925, lon: -99.9018, type: 'state', crops: ['corn', 'soybeans', 'beef'], climate: 'continental' },
+      { name: 'Illinois', country: 'United States', lat: 40.3363, lon: -89.0022, type: 'state', crops: ['corn', 'soybeans'], climate: 'continental' },
+      { name: 'Kansas', country: 'United States', lat: 38.5266, lon: -96.7265, type: 'state', crops: ['wheat', 'corn', 'soybeans'], climate: 'continental' },
+      { name: 'California Central Valley', country: 'United States', lat: 36.7378, lon: -119.7871, type: 'region', crops: ['almonds', 'grapes', 'tomatoes', 'citrus'], climate: 'mediterranean' },
+      { name: 'Texas Panhandle', country: 'United States', lat: 35.2211, lon: -101.8313, type: 'region', crops: ['cotton', 'wheat', 'corn'], climate: 'semi-arid' },
+      { name: 'Florida', country: 'United States', lat: 27.7663, lon: -82.6404, type: 'state', crops: ['citrus', 'sugarcane', 'vegetables'], climate: 'subtropical' },
+
+      // Brazil - Agricultural Powerhouse
+      { name: 'Mato Grosso', country: 'Brazil', lat: -15.6014, lon: -56.0979, type: 'state', crops: ['soybeans', 'corn', 'cotton'], climate: 'tropical' },
+      { name: 'Rio Grande do Sul', country: 'Brazil', lat: -30.0346, lon: -51.2177, type: 'state', crops: ['soybeans', 'rice', 'wheat'], climate: 'subtropical' },
+      { name: 'Paraná', country: 'Brazil', lat: -24.8941, lon: -51.4233, type: 'state', crops: ['soybeans', 'corn', 'wheat'], climate: 'subtropical' },
+      { name: 'São Paulo', country: 'Brazil', lat: -23.5505, lon: -46.6333, type: 'state', crops: ['sugarcane', 'citrus', 'coffee'], climate: 'subtropical' },
+      { name: 'Cerrado', country: 'Brazil', lat: -15.7801, lon: -47.9292, type: 'region', crops: ['soybeans', 'corn', 'cotton'], climate: 'tropical_savanna' },
+
+      // Argentina - Pampas Region
+      { name: 'Buenos Aires Province', country: 'Argentina', lat: -36.6769, lon: -60.5588, type: 'province', crops: ['soybeans', 'wheat', 'corn', 'beef'], climate: 'temperate' },
+      { name: 'Córdoba', country: 'Argentina', lat: -31.4201, lon: -64.1888, type: 'province', crops: ['soybeans', 'corn', 'wheat'], climate: 'temperate' },
+      { name: 'Santa Fe', country: 'Argentina', lat: -31.6333, lon: -60.7000, type: 'province', crops: ['soybeans', 'wheat', 'corn'], climate: 'temperate' },
+
+      // India - Major Agricultural States
+      { name: 'Punjab', country: 'India', lat: 31.1471, lon: 75.3412, type: 'state', crops: ['wheat', 'rice', 'cotton'], climate: 'semi-arid' },
+      { name: 'Uttar Pradesh', country: 'India', lat: 26.8467, lon: 80.9462, type: 'state', crops: ['wheat', 'rice', 'sugarcane'], climate: 'subtropical' },
+      { name: 'Haryana', country: 'India', lat: 29.0588, lon: 76.0856, type: 'state', crops: ['wheat', 'rice', 'cotton'], climate: 'semi-arid' },
+      { name: 'Maharashtra', country: 'India', lat: 19.7515, lon: 75.7139, type: 'state', crops: ['cotton', 'sugarcane', 'soybeans'], climate: 'tropical' },
+      { name: 'West Bengal', country: 'India', lat: 22.9868, lon: 87.8550, type: 'state', crops: ['rice', 'jute', 'tea'], climate: 'tropical' },
+
+      // China - Major Agricultural Regions
+      { name: 'Heilongjiang', country: 'China', lat: 47.8620, lon: 127.7615, type: 'province', crops: ['soybeans', 'corn', 'rice'], climate: 'continental' },
+      { name: 'Henan', country: 'China', lat: 33.8818, lon: 113.6140, type: 'province', crops: ['wheat', 'corn', 'rice'], climate: 'temperate' },
+      { name: 'Shandong', country: 'China', lat: 36.3427, lon: 118.1498, type: 'province', crops: ['wheat', 'corn', 'vegetables'], climate: 'temperate' },
+      { name: 'Jiangsu', country: 'China', lat: 32.9711, lon: 119.4550, type: 'province', crops: ['rice', 'wheat', 'cotton'], climate: 'subtropical' },
+
+      // Europe - Major Agricultural Areas
+      { name: 'Île-de-France', country: 'France', lat: 48.8499, lon: 2.6370, type: 'region', crops: ['wheat', 'barley', 'sugar_beet'], climate: 'temperate' },
+      { name: 'Normandy', country: 'France', lat: 49.1829, lon: -0.3707, type: 'region', crops: ['wheat', 'dairy', 'apples'], climate: 'oceanic' },
+      { name: 'Bavaria', country: 'Germany', lat: 49.0134, lon: 10.9698, type: 'state', crops: ['wheat', 'barley', 'hops'], climate: 'temperate' },
+      { name: 'Lower Saxony', country: 'Germany', lat: 52.6367, lon: 9.8451, type: 'state', crops: ['wheat', 'sugar_beet', 'potatoes'], climate: 'temperate' },
+      { name: 'Andalusia', country: 'Spain', lat: 37.3891, lon: -5.9845, type: 'region', crops: ['olives', 'citrus', 'wheat'], climate: 'mediterranean' },
+      { name: 'Po Valley', country: 'Italy', lat: 45.0703, lon: 9.6869, type: 'region', crops: ['rice', 'corn', 'wheat'], climate: 'continental' },
+
+      // Australia - Agricultural Regions
+      { name: 'Western Australia Wheatbelt', country: 'Australia', lat: -31.9505, lon: 117.3616, type: 'region', crops: ['wheat', 'barley', 'canola'], climate: 'mediterranean' },
+      { name: 'New South Wales', country: 'Australia', lat: -31.2532, lon: 146.9211, type: 'state', crops: ['wheat', 'cotton', 'rice'], climate: 'temperate' },
+      { name: 'Queensland', country: 'Australia', lat: -20.9176, lon: 142.7028, type: 'state', crops: ['sugarcane', 'cotton', 'wheat'], climate: 'subtropical' },
+
+      // Canada - Prairie Provinces
+      { name: 'Saskatchewan', country: 'Canada', lat: 52.9399, lon: -106.4509, type: 'province', crops: ['wheat', 'canola', 'lentils'], climate: 'continental' },
+      { name: 'Alberta', country: 'Canada', lat: 53.9333, lon: -116.5765, type: 'province', crops: ['wheat', 'canola', 'barley'], climate: 'continental' },
+      { name: 'Manitoba', country: 'Canada', lat: 53.7609, lon: -98.8139, type: 'province', crops: ['wheat', 'canola', 'soybeans'], climate: 'continental' },
+
+      // Africa - Major Agricultural Areas
+      { name: 'Nile Delta', country: 'Egypt', lat: 30.8025, lon: 31.1848, type: 'region', crops: ['rice', 'cotton', 'wheat'], climate: 'arid' },
+      { name: 'KwaZulu-Natal', country: 'South Africa', lat: -28.5305, lon: 30.8958, type: 'province', crops: ['sugarcane', 'corn', 'soybeans'], climate: 'subtropical' },
+      { name: 'Western Cape', country: 'South Africa', lat: -33.2277, lon: 21.8569, type: 'province', crops: ['wheat', 'wine_grapes', 'citrus'], climate: 'mediterranean' },
+      { name: 'Rift Valley', country: 'Kenya', lat: -0.0236, lon: 37.9062, type: 'region', crops: ['coffee', 'tea', 'wheat'], climate: 'tropical_highland' },
+
+      // Southeast Asia
+      { name: 'Mekong Delta', country: 'Vietnam', lat: 10.0452, lon: 105.7469, type: 'region', crops: ['rice', 'aquaculture', 'fruits'], climate: 'tropical' },
+      { name: 'Central Thailand', country: 'Thailand', lat: 14.0583, lon: 100.6014, type: 'region', crops: ['rice', 'sugarcane', 'cassava'], climate: 'tropical' },
+      { name: 'Java', country: 'Indonesia', lat: -7.6145, lon: 110.7122, type: 'island', crops: ['rice', 'tea', 'coffee'], climate: 'tropical' },
+      { name: 'Peninsular Malaysia', country: 'Malaysia', lat: 4.2105, lon: 101.9758, type: 'region', crops: ['palm_oil', 'rubber', 'rice'], climate: 'tropical' }
+    ];
   };
 
-  const handleLocationInputChange = (value) => {
+  // Get agricultural regions (can be extended with API calls)
+  const agriculturalRegions = getGlobalAgriculturalRegions();
+
+  // API-enhanced location search with worldwide coverage
+  const searchLocation = async (query) => {
+    if (!query.trim()) return [];
+    
+    const searchTerm = query.toLowerCase();
+    
+    // First, search in our comprehensive local database
+    const localResults = agriculturalRegions.filter(location => 
+      location.name.toLowerCase().includes(searchTerm) ||
+      location.country.toLowerCase().includes(searchTerm) ||
+      location.crops.some(crop => crop.toLowerCase().includes(searchTerm))
+    ).slice(0, 4);
+
+    // If we have good local results, return them
+    if (localResults.length >= 3) {
+      return localResults;
+    }
+
+    // Otherwise, try to fetch additional results from APIs
+    try {
+      const apiResults = await fetchAdditionalAgriculturalRegions(query);
+      
+      // Combine local and API results, removing duplicates
+      const combinedResults = [...localResults];
+      
+      apiResults.forEach(apiResult => {
+        const isDuplicate = combinedResults.some(local => 
+          Math.abs(local.lat - apiResult.lat) < 0.1 && 
+          Math.abs(local.lon - apiResult.lon) < 0.1
+        );
+        
+        if (!isDuplicate && combinedResults.length < 6) {
+          combinedResults.push(apiResult);
+        }
+      });
+      
+      return combinedResults;
+      
+    } catch (error) {
+      console.warn('API search failed, using local results:', error);
+      return localResults;
+    }
+  };
+
+  // Fetch additional agricultural regions from APIs
+  const fetchAdditionalAgriculturalRegions = async (query) => {
+    try {
+      // Use OpenStreetMap Nominatim API for worldwide location search
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(query + ' agricultural region')}`;
+      
+      const response = await fetch(nominatimUrl, {
+        headers: {
+          'User-Agent': 'FarmWeather-App/1.0'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Nominatim API failed');
+      
+      const data = await response.json();
+      
+      // Process and enhance the results with agricultural context
+      return data.map(item => ({
+        name: item.display_name.split(',')[0],
+        country: item.display_name.split(',').pop().trim(),
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon),
+        type: item.type || 'location',
+        crops: inferCropsFromLocation(parseFloat(item.lat), parseFloat(item.lon)),
+        climate: inferClimateFromLocation(parseFloat(item.lat)),
+        source: 'api'
+      }));
+      
+    } catch (error) {
+      console.warn('Failed to fetch additional regions:', error);
+      return [];
+    }
+  };
+
+  // Infer likely crops based on geographic location
+  const inferCropsFromLocation = (lat, lon) => {
+    // Tropical regions (between 23.5°N and 23.5°S)
+    if (Math.abs(lat) < 23.5) {
+      return ['rice', 'corn', 'sugarcane', 'tropical_fruits', 'vegetables'];
+    }
+    
+    // Temperate regions
+    if (Math.abs(lat) >= 23.5 && Math.abs(lat) < 50) {
+      // Northern hemisphere temperate
+      if (lat > 0) {
+        return ['wheat', 'corn', 'soybeans', 'vegetables'];
+      }
+      // Southern hemisphere temperate
+      return ['wheat', 'corn', 'wine_grapes', 'vegetables'];
+    }
+    
+    // Cold regions (above 50° latitude)
+    if (Math.abs(lat) >= 50) {
+      return ['wheat', 'barley', 'potatoes', 'canola'];
+    }
+    
+    return ['mixed_crops'];
+  };
+
+  // Infer climate type based on latitude
+  const inferClimateFromLocation = (lat) => {
+    if (Math.abs(lat) < 10) return 'tropical';
+    if (Math.abs(lat) < 23.5) return 'subtropical';
+    if (Math.abs(lat) < 35) return 'temperate';
+    if (Math.abs(lat) < 50) return 'continental';
+    return 'cold';
+  };
+
+  const handleLocationInputChange = async (value) => {
     setFarmData({...farmData, location: value});
     if (value.trim().length > 0) {
-      const searchResults = searchLocation(value);
-      setSuggestions(searchResults);
-      setShowSuggestions(true);
+      try {
+        const searchResults = await searchLocation(value);
+        setSuggestions(searchResults);
+        setShowSuggestions(true);
+      } catch (error) {
+        console.error('Location search error:', error);
+        // Fallback to local search only
+        const localResults = agriculturalRegions.filter(location => 
+          location.name.toLowerCase().includes(value.toLowerCase()) ||
+          location.country.toLowerCase().includes(value.toLowerCase())
+        ).slice(0, 6);
+        setSuggestions(localResults);
+        setShowSuggestions(true);
+      }
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -209,7 +393,7 @@ const FarmWeather = () => {
       
       // Get both traditional weather data and NASA agricultural analysis
       const [weatherData, nasaAgricultural] = await Promise.all([
-        weatherService.getWeatherAnalysis(
+        weatherApiService.getWeatherAnalysis(
           farmData.coordinates.lat, 
           farmData.coordinates.lon, 
           targetDate
@@ -462,46 +646,22 @@ const FarmWeather = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => navigate('/')}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <span>Back to Home</span>
-              </button>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <h1 className="text-2xl font-bold text-gray-900">Farm Weather Assistant</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => navigate('/dashboard')}
-                className="btn-secondary inline-flex items-center space-x-2"
-              >
-                <Search className="h-4 w-4" />
-                <span>Dashboard</span>
-              </button>
-              
-              <button 
-                onClick={() => navigate('/event-planner')}
-                className="btn-secondary inline-flex items-center space-x-2"
-              >
-                <Calendar className="h-4 w-4" />
-                <span>Event Planner</span>
-              </button>
-            </div>
+      {/* Page Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-12 sm:h-14">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900">
+              <span className="hidden sm:inline">Farm Weather Assistant</span>
+              <span className="sm:hidden">Farm Weather</span>
+            </h1>
+            <p className="text-sm text-gray-600 hidden md:block">NASA satellite data for Philippine agriculture</p>
           </div>
         </div>
-      </header>
+      </div>
 
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-8">
-          <p className="text-gray-600">Get weather insights tailored for Philippine agriculture using NASA satellite data</p>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        <div className="mb-6 sm:mb-8">
+          <p className="text-sm sm:text-base text-gray-600">Get weather insights tailored for Philippine agriculture using NASA satellite data</p>
         </div>
 
         {/* NASA Data Tabs */}

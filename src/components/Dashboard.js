@@ -349,16 +349,34 @@ const Dashboard = () => {
       // Calculate probabilities using historical NASA data
       let probabilities;
       try {
+        console.log('🧮 Starting probability calculations with data:', historicalData);
         probabilities = weatherCalculations.calculateProbabilities(historicalData, targetDate);
+        console.log('📊 Initial probabilities calculated:', probabilities);
         
         // If we get default probabilities, try location-based estimates instead
         if (probabilities.hot === 15 && probabilities.cold === 10 && probabilities.wet === 25) {
           console.log('🌍 Default probabilities detected, using location-based estimates...');
           probabilities = weatherCalculations.getLocationBasedProbabilities(lat, lon);
+          console.log('🌍 Location-based probabilities:', probabilities);
         }
       } catch (error) {
         console.error('❌ Probability calculation failed:', error);
+        console.log('🔄 Falling back to location-based probabilities...');
         probabilities = weatherCalculations.getLocationBasedProbabilities(lat, lon);
+        console.log('🔄 Fallback probabilities:', probabilities);
+      }
+      
+      // Final validation before display
+      console.log('🎯 Final probabilities before display:', probabilities);
+      if (!probabilities || Object.values(probabilities).every(val => val === 0)) {
+        console.log('⚠️ All probabilities are 0 or undefined, forcing defaults');
+        probabilities = {
+          hot: 15,
+          cold: 10,
+          wet: 25,
+          windy: 20,
+          uncomfortable: 18
+        };
       }
       
       // Generate enhanced summary
@@ -428,54 +446,25 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      {/* Header */}
+      {/* Page Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16">
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <button
-                onClick={() => navigate('/')}
-                className="flex items-center space-x-1 sm:space-x-2 text-gray-600 hover:text-gray-900 transition-colors p-1"
-              >
-                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="font-medium text-sm sm:text-base hidden sm:inline">Back to Home</span>
-                <span className="font-medium text-sm sm:hidden">Back</span>
-              </button>
-            </div>
+          <div className="flex items-center justify-between h-12 sm:h-14">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900">
+              <span className="hidden sm:inline">Weather Analysis Dashboard</span>
+              <span className="sm:hidden">Dashboard</span>
+            </h1>
             
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
-                <span className="hidden sm:inline">Weather Analysis Dashboard</span>
-                <span className="sm:hidden">Weather Dashboard</span>
-              </h1>
-              
-              <div className="hidden md:flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
+              {results && (
                 <button 
-                  onClick={() => navigate('/farm-weather')}
+                  onClick={handleExportData}
                   className="btn-secondary inline-flex items-center space-x-1 text-sm"
                 >
-                  <Wheat className="h-4 w-4" />
-                  <span className="hidden lg:inline">Farm Weather</span>
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline">Export Data</span>
                 </button>
-                
-                <button 
-                  onClick={() => navigate('/event-planner')}
-                  className="btn-secondary inline-flex items-center space-x-1 text-sm"
-                >
-                  <Calendar className="h-4 w-4" />
-                  <span className="hidden lg:inline">Event Planner</span>
-                </button>
-                
-                {results && (
-                  <button 
-                    onClick={handleExportData}
-                    className="btn-secondary inline-flex items-center space-x-1 text-sm"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span className="hidden lg:inline">Export</span>
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>

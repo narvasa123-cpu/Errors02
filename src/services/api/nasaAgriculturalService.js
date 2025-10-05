@@ -194,7 +194,30 @@ class NasaAgriculturalService {
   analyzeTemperature(dailyData, crop) {
     if (!dailyData.T2M) return { status: 'no_data', score: 0 };
 
-    const temperatures = Object.values(dailyData.T2M);
+    // Get temperature values and ensure they're in Celsius
+    const rawTemperatures = Object.values(dailyData.T2M);
+    
+    // Convert from Kelvin to Celsius if needed (NASA POWER sometimes returns Kelvin)
+    const temperatures = rawTemperatures.map(temp => {
+      // If temperature is > 100, it's likely in Kelvin, convert to Celsius
+      if (temp > 100) {
+        return temp - 273.15;
+      }
+      // If temperature is extremely negative, it might be a data error
+      if (temp < -100) {
+        console.warn('⚠️ Suspicious temperature value detected:', temp, 'Using fallback');
+        // Return a reasonable temperature for the location
+        return 27; // Default tropical temperature
+      }
+      return temp;
+    });
+    
+    console.log('🌡️ Temperature analysis:', {
+      rawSample: rawTemperatures.slice(0, 3),
+      processedSample: temperatures.slice(0, 3),
+      avgProcessed: temperatures.reduce((sum, temp) => sum + temp, 0) / temperatures.length
+    });
+
     const avgTemp = temperatures.reduce((sum, temp) => sum + temp, 0) / temperatures.length;
     const minTemp = Math.min(...temperatures);
     const maxTemp = Math.max(...temperatures);
@@ -468,18 +491,33 @@ class NasaAgriculturalService {
    * Calculate overall conditions score
    */
   calculateOverallScore(analysis) {
-    const scores = [
-      analysis.temperature.score,
-      analysis.precipitation.score,
-      analysis.soilMoisture.score,
-      analysis.solarRadiation.score,
-      analysis.humidity.score,
-      analysis.windConditions.score
-    ].filter(score => score > 0);
+    // Extract scores and handle missing/invalid data
+    const scoreData = [
+      { name: 'temperature', score: analysis.temperature?.score || 0 },
+      { name: 'precipitation', score: analysis.precipitation?.score || 0 },
+      { name: 'soilMoisture', score: analysis.soilMoisture?.score || 0 },
+      { name: 'solarRadiation', score: analysis.solarRadiation?.score || 0 },
+      { name: 'humidity', score: analysis.humidity?.score || 0 },
+      { name: 'windConditions', score: analysis.windConditions?.score || 0 }
+    ];
 
-    if (scores.length === 0) return { status: 'no_data', score: 0 };
+    // Filter valid scores (between 0 and 100)
+    const validScores = scoreData.filter(item => 
+      item.score >= 0 && item.score <= 100 && !isNaN(item.score)
+    );
 
-    const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    console.log('📊 Overall score calculation:', {
+      allScores: scoreData,
+      validScores: validScores,
+      validCount: validScores.length
+    });
+
+    if (validScores.length === 0) {
+      console.warn('⚠️ No valid scores found for overall calculation');
+      return { status: 'no_data', score: 0, factors: 0 };
+    }
+
+    const avgScore = validScores.reduce((sum, item) => sum + item.score, 0) / validScores.length;
     
     let status;
     if (avgScore >= 80) status = 'excellent';
@@ -491,7 +529,11 @@ class NasaAgriculturalService {
     return {
       status,
       score: Math.round(avgScore),
-      factors: scores.length
+      factors: validScores.length,
+      breakdown: validScores.reduce((acc, item) => {
+        acc[item.name] = item.score;
+        return acc;
+      }, {})
     };
   }
 

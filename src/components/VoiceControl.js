@@ -8,7 +8,8 @@ import {
   Settings,
   Play,
   Pause,
-  RotateCcw
+  RotateCcw,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -317,10 +318,10 @@ const VoiceControl = ({ onLocationSelect, onCropSelect, onAnalyze, currentPage, 
 
   return (
     <>
-      {/* Voice Control Panel */}
-      <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 max-w-sm z-50">
+      {/* Voice Control Panel - Responsive */}
+      <div className="fixed bottom-2 sm:bottom-4 right-2 sm:right-4 bg-white rounded-lg shadow-2xl border border-gray-200 p-3 sm:p-4 w-[calc(100vw-1rem)] sm:w-80 max-w-sm z-50">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900">Voice Control</h3>
+          <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Voice Control</h3>
           <button
             onClick={() => setShowHelp(true)}
             className="p-1 text-gray-400 hover:text-gray-600 rounded"
@@ -330,17 +331,17 @@ const VoiceControl = ({ onLocationSelect, onCropSelect, onAnalyze, currentPage, 
         </div>
 
         {/* Status Display */}
-        <div className="mb-4">
+        <div className="mb-3 sm:mb-4">
           <div className={`flex items-center space-x-2 mb-2 ${isListening ? 'text-green-600' : 'text-gray-500'}`}>
             {isListening ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-            <span className="text-sm font-medium">
+            <span className="text-xs sm:text-sm font-medium">
               {isListening ? 'Listening...' : 'Voice control inactive'}
             </span>
           </div>
 
           {transcript && (
-            <div className="bg-gray-50 rounded p-2 text-sm">
-              <div className="text-gray-600">Heard: "{transcript}"</div>
+            <div className="bg-gray-50 rounded p-2 text-xs sm:text-sm">
+              <div className="text-gray-600 break-words">Heard: "{transcript}"</div>
               {confidence > 0 && (
                 <div className="text-xs text-gray-400 mt-1">
                   Confidence: {Math.round(confidence * 100)}%
@@ -354,19 +355,20 @@ const VoiceControl = ({ onLocationSelect, onCropSelect, onAnalyze, currentPage, 
         <div className="flex space-x-2">
           <button
             onClick={toggleListening}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-lg font-medium text-sm transition-colors ${
+            className={`flex-1 flex items-center justify-center space-x-1 sm:space-x-2 py-2 px-2 sm:px-3 rounded-lg font-medium text-xs sm:text-sm transition-colors ${
               isListening 
                 ? 'bg-red-100 text-red-700 hover:bg-red-200' 
                 : 'bg-green-100 text-green-700 hover:bg-green-200'
             }`}
           >
             {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            <span>{isListening ? 'Stop' : 'Start'}</span>
+            <span className="hidden sm:inline">{isListening ? 'Stop' : 'Start'}</span>
           </button>
 
           <button
             onClick={isSpeaking ? stopSpeaking : () => speak('Voice control is ready. Say help for commands.')}
             className="flex items-center justify-center p-2 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+            title={isSpeaking ? 'Stop speaking' : 'Test voice'}
           >
             {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
@@ -375,14 +377,15 @@ const VoiceControl = ({ onLocationSelect, onCropSelect, onAnalyze, currentPage, 
         {/* Quick Actions */}
         <div className="mt-3 pt-3 border-t border-gray-200">
           <div className="text-xs text-gray-500 mb-2">Quick voice commands:</div>
-          <div className="flex flex-wrap gap-1">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1">
             {['help', 'farm weather', 'manila', 'analyze weather', 'read summary'].map((cmd) => (
               <button
                 key={cmd}
                 onClick={() => processVoiceCommand(cmd)}
-                className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors"
+                className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors truncate"
+                title={`Say: "${cmd}"`}
               >
-                "{cmd}"
+                "{cmd.length > 8 ? cmd.substring(0, 8) + '...' : cmd}"
               </button>
             ))}
           </div>
@@ -395,7 +398,7 @@ const VoiceControl = ({ onLocationSelect, onCropSelect, onAnalyze, currentPage, 
             >
               🐛 Test Summary
             </button>
-            <div className="text-xs text-gray-400 mt-1">
+            <div className="text-xs text-gray-400 mt-1 break-words">
               Results: {results ? 'Available' : 'None'} | 
               Summary: {results?.summary ? 'Yes' : 'No'}
             </div>
@@ -403,25 +406,25 @@ const VoiceControl = ({ onLocationSelect, onCropSelect, onAnalyze, currentPage, 
         </div>
       </div>
 
-      {/* Help Modal */}
+      {/* Help Modal - Responsive */}
       {showHelp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-96 overflow-y-auto">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] sm:max-h-96 overflow-y-auto">
+            <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Voice Commands Help</h2>
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Voice Commands Help</h2>
                 <button
                   onClick={() => setShowHelp(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 p-1"
                 >
-                  ✕
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">How to Use Voice Control</h3>
-                  <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
+                  <h3 className="font-semibold text-gray-900 mb-2 text-sm sm:text-base">How to Use Voice Control</h3>
+                  <ol className="list-decimal list-inside space-y-1 text-xs sm:text-sm text-gray-600">
                     <li>Click the "Start" button to activate voice recognition</li>
                     <li>Speak clearly and wait for the system to process your command</li>
                     <li>Commands are case-insensitive and support natural language</li>
@@ -430,19 +433,19 @@ const VoiceControl = ({ onLocationSelect, onCropSelect, onAnalyze, currentPage, 
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Available Commands</h3>
-                  <div className="space-y-3 text-sm">
+                  <h3 className="font-semibold text-gray-900 mb-2 text-sm sm:text-base">Available Commands</h3>
+                  <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm">
                     {getContextualHelp().map((category, index) => (
-                      <div key={index} className="bg-gray-50 rounded p-3">
-                        <code className="text-gray-700">{category}</code>
+                      <div key={index} className="bg-gray-50 rounded p-2 sm:p-3">
+                        <code className="text-gray-700 break-words">{category}</code>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Accessibility Features</h3>
-                  <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                  <h3 className="font-semibold text-gray-900 mb-2 text-sm sm:text-base">Accessibility Features</h3>
+                  <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm text-gray-600">
                     <li>Hands-free navigation throughout the app</li>
                     <li>Audio feedback for all actions</li>
                     <li>Voice-controlled weather analysis</li>
@@ -452,17 +455,18 @@ const VoiceControl = ({ onLocationSelect, onCropSelect, onAnalyze, currentPage, 
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end space-x-3">
+              <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
                 <button
                   onClick={() => speak(getContextualHelp().join('. '))}
-                  className="btn-secondary inline-flex items-center space-x-2"
+                  className="btn-secondary inline-flex items-center justify-center space-x-2 text-sm"
                 >
                   <Volume2 className="h-4 w-4" />
-                  <span>Read Commands Aloud</span>
+                  <span className="hidden sm:inline">Read Commands Aloud</span>
+                  <span className="sm:hidden">Read Aloud</span>
                 </button>
                 <button
                   onClick={() => setShowHelp(false)}
-                  className="btn-primary"
+                  className="btn-primary text-sm"
                 >
                   Got It
                 </button>

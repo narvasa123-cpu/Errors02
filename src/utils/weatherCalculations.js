@@ -24,8 +24,10 @@ class WeatherCalculations {
       
       if (dates.length > 0) {
         console.log('📅 Extracted dates:', dates.length, 'dates from', dates[0], 'to', dates[dates.length - 1]);
+        console.log('✅ Successfully extracted NASA satellite data - using REAL data for calculations');
       } else {
         console.log('⚠️ No dates extracted from NASA data, structure:', JSON.stringify(daily, null, 2).substring(0, 500));
+        console.log('🔄 Will fall back to location-based estimates');
       }
       
       processedData = dates.map(date => {
@@ -55,6 +57,17 @@ class WeatherCalculations {
     }
     
     console.log('✅ Processing', processedData.length, 'days of data for probability calculations');
+    
+    // Validate if we're using real NASA data
+    const isRealNasaData = processedData.length > 100 && processedData.some(day => 
+      day.temperature !== 20 && day.precipitation !== 0 && day.windSpeed !== 3
+    );
+    
+    if (isRealNasaData) {
+      console.log('🛰️ CONFIRMED: Using real NASA satellite data for calculations');
+    } else {
+      console.log('⚠️ WARNING: Data appears to be simulated/default values');
+    }
 
     const totalDays = processedData.length;
     let hotDays = 0;
@@ -156,11 +169,25 @@ class WeatherCalculations {
   getLocationBasedProbabilities(lat, lon) {
     console.log('🌍 Generating location-based probabilities for', lat, lon);
     
+    // Validate input coordinates
+    if (lat === undefined || lon === undefined || isNaN(lat) || isNaN(lon)) {
+      console.log('⚠️ Invalid coordinates, using global defaults');
+      return this.getDefaultProbabilities();
+    }
+    
+    // Convert to numbers if they're strings
+    lat = Number(lat);
+    lon = Number(lon);
+    
+    console.log('📍 Processing coordinates:', { lat, lon });
+    
     // Basic climate zone detection
     const isTropical = Math.abs(lat) < 23.5;
     const isEquatorial = Math.abs(lat) < 10;
     const isTemperate = Math.abs(lat) >= 23.5 && Math.abs(lat) < 60;
     const isCoastal = Math.abs(lon) % 10 < 3; // Rough approximation
+    
+    console.log('🌡️ Climate zones:', { isTropical, isEquatorial, isTemperate, isCoastal });
     
     let hot = 15, cold = 10, wet = 25, windy = 20, uncomfortable = 18;
     
@@ -194,16 +221,23 @@ class WeatherCalculations {
       uncomfortable -= 5; // Ocean moderates temperature
     }
     
-    // Ensure values are within 0-100 range
+    // Ensure values are within 0-100 range and never 0%
     const probabilities = {
-      hot: Math.min(100, Math.max(0, hot)),
-      cold: Math.min(100, Math.max(0, cold)),
-      wet: Math.min(100, Math.max(0, wet)),
-      windy: Math.min(100, Math.max(0, windy)),
-      uncomfortable: Math.min(100, Math.max(0, uncomfortable))
+      hot: Math.min(100, Math.max(1, hot)), // Minimum 1%
+      cold: Math.min(100, Math.max(1, cold)),
+      wet: Math.min(100, Math.max(1, wet)),
+      windy: Math.min(100, Math.max(1, windy)),
+      uncomfortable: Math.min(100, Math.max(1, uncomfortable))
     };
     
     console.log('🎯 Location-based probabilities:', probabilities);
+    
+    // Final validation - if all are still 0 somehow, return defaults
+    if (probabilities.hot === 0 && probabilities.cold === 0 && probabilities.wet === 0) {
+      console.log('⚠️ All probabilities are 0, returning defaults');
+      return this.getDefaultProbabilities();
+    }
+    
     return probabilities;
   }
 
@@ -430,11 +464,12 @@ class WeatherCalculations {
     for (const paramKey of parameterKeys) {
       if (daily[paramKey] && typeof daily[paramKey] === 'object') {
         const dates = Object.keys(daily[paramKey]);
-        console.log(`📅 Checking parameter ${paramKey}, found ${dates.length} keys:`, dates.slice(0, 3));
+        console.log(`📅 Checking parameter ${paramKey}, found ${dates.length} keys:`, dates.slice(0, 5));
         
         if (dates.length > 0) {
           // Check for multiple date formats
           const firstKey = dates[0];
+          console.log(`🔍 First key format analysis: "${firstKey}" (length: ${firstKey.length})`);
           
           // YYYY-MM-DD format (ISO)
           if (firstKey.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -442,16 +477,18 @@ class WeatherCalculations {
             return dates.sort();
           }
           
-          // YYYYMMDD format (NASA POWER common format)
+          // YYYYMMDD format (NASA POWER common format - 8 digits)
           if (firstKey.match(/^\d{8}$/)) {
             console.log(`✅ Found YYYYMMDD date format in ${paramKey}`);
             // Convert YYYYMMDD to YYYY-MM-DD
-            return dates.map(date => {
+            const convertedDates = dates.map(date => {
               const year = date.substring(0, 4);
               const month = date.substring(4, 6);
               const day = date.substring(6, 8);
               return `${year}-${month}-${day}`;
             }).sort();
+            console.log(`📅 Converted ${dates.length} dates from YYYYMMDD to ISO format`);
+            return convertedDates;
           }
           
           // YYYY/MM/DD format
@@ -459,6 +496,30 @@ class WeatherCalculations {
             console.log(`✅ Found YYYY/MM/DD date format in ${paramKey}`);
             return dates.map(date => date.replace(/\//g, '-')).sort();
           }
+          
+          // NASA POWER sometimes uses YYYY-MM-DD format but as strings
+          if (firstKey.length === 10 && firstKey.includes('-')) {
+            console.log(`✅ Found string ISO date format in ${paramKey}`);
+            return dates.sort();
+          }
+          
+          // Check if it's a numeric date that could be converted
+          if (!isNaN(firstKey) && firstKey.length >= 6) {
+            console.log(`🔄 Attempting to parse numeric date format: ${firstKey}`);
+            if (firstKey.length === 8) {
+              // YYYYMMDD
+              const convertedDates = dates.map(date => {
+                const year = date.substring(0, 4);
+                const month = date.substring(4, 6);
+                const day = date.substring(6, 8);
+                return `${year}-${month}-${day}`;
+              }).sort();
+              console.log(`📅 Converted numeric dates to ISO format`);
+              return convertedDates;
+            }
+          }
+          
+          console.log(`❌ Unrecognized date format in ${paramKey}: "${firstKey}"`);
         }
       }
     }

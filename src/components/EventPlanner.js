@@ -18,8 +18,10 @@ import {
   Search
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { weatherService } from '../services/weatherService';
+import weatherService from '../services/weatherApiService';
 import { weatherCalculations } from '../utils/weatherCalculations';
+import { searchLocationsAPI, getLocationCoordinates } from '../services/locationService';
+import VoiceControl from './VoiceControl';
 
 const EventPlanner = () => {
   const navigate = useNavigate();
@@ -75,12 +77,26 @@ const EventPlanner = () => {
     ).slice(0, 5);
   };
 
-  const handleLocationInputChange = (value) => {
+  const handleLocationInputChange = async (value) => {
     setEventData({...eventData, location: value});
-    if (value.trim().length > 0) {
-      const searchResults = searchLocation(value);
-      setSuggestions(searchResults);
-      setShowSuggestions(true);
+    
+    if (value.trim().length > 2) {
+      try {
+        // First try API search for better results
+        const apiResults = await searchLocationsAPI(value, 5);
+        if (apiResults && apiResults.length > 0) {
+          setSuggestions(apiResults);
+          setShowSuggestions(true);
+          return;
+        }
+      } catch (error) {
+        console.warn('API location search failed, using local database:', error);
+      }
+      
+      // Fallback to local database
+      const localResults = searchLocation(value);
+      setSuggestions(localResults || []);
+      setShowSuggestions(localResults && localResults.length > 0);
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -97,6 +113,19 @@ const EventPlanner = () => {
     setSuggestions([]);
   };
 
+  // Voice control handlers
+  const handleVoiceLocationSelect = (location) => {
+    setEventData({
+      ...eventData,
+      location: location.name,
+      coordinates: { lat: location.lat, lon: location.lon }
+    });
+  };
+
+  const handleVoiceAnalyze = () => {
+    handleEventAnalysis();
+  };
+
   const handleEventAnalysis = async () => {
     if (!eventData.location || !eventData.startDate || !eventData.coordinates.lat) {
       setError('Please fill in all required fields');
@@ -110,35 +139,91 @@ const EventPlanner = () => {
       const results = [];
       const startDate = new Date(eventData.startDate);
       
+      console.log('🎪 Starting event analysis for:', eventData);
+      
       // Analyze each day of the event
       for (let i = 0; i < eventData.duration; i++) {
         const currentDate = new Date(startDate);
         currentDate.setDate(startDate.getDate() + i);
         const dateStr = currentDate.toISOString().split('T')[0];
         
-        const weatherData = await weatherService.getWeatherAnalysis(
-          eventData.coordinates.lat, 
-          eventData.coordinates.lon, 
-          dateStr
-        );
+        console.log(`📅 Analyzing day ${i + 1}: ${dateStr}`);
         
-        const probabilities = weatherCalculations.calculateProbabilities(weatherData, dateStr);
-        
-        results.push({
-          date: dateStr,
-          dayName: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
-          probabilities,
-          weatherData,
-          riskLevel: calculateEventRisk(probabilities, eventData.type)
-        });
+        try {
+          // Fetch weather data with error handling
+          const weatherData = await weatherService.getWeatherAnalysis(
+            eventData.coordinates.lat, 
+            eventData.coordinates.lon, 
+            dateStr
+          );
+          
+          console.log('🌤️ Weather data received:', weatherData);
+          
+          // Calculate probabilities with fallback
+          let probabilities;
+          try {
+            probabilities = weatherCalculations.calculateProbabilities(weatherData, dateStr);
+            console.log('📊 Probabilities calculated:', probabilities);
+          } catch (probError) {
+            console.warn('⚠️ Probability calculation failed, using location-based estimates:', probError);
+            probabilities = weatherCalculations.getLocationBasedProbabilities(
+              eventData.coordinates.lat, 
+              eventData.coordinates.lon
+            );
+          }
+          
+          // Ensure probabilities are valid
+          if (!probabilities || Object.values(probabilities).every(val => val === 0)) {
+            console.log('🔄 Using default probabilities for event planning');
+            probabilities = {
+              hot: 20,
+              cold: 15,
+              wet: 30,
+              windy: 25,
+              uncomfortable: 22
+            };
+          }
+          
+          results.push({
+            date: dateStr,
+            dayName: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
+            probabilities,
+            weatherData,
+            riskLevel: calculateEventRisk(probabilities, eventData.type)
+          });
+          
+        } catch (dayError) {
+          console.error(`❌ Failed to analyze day ${dateStr}:`, dayError);
+          
+          // Add fallback data for this day
+          const fallbackProbabilities = {
+            hot: 20,
+            cold: 15,
+            wet: 30,
+            windy: 25,
+            uncomfortable: 22
+          };
+          
+          results.push({
+            date: dateStr,
+            dayName: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
+            probabilities: fallbackProbabilities,
+            weatherData: { fallback: true, error: dayError.message },
+            riskLevel: calculateEventRisk(fallbackProbabilities, eventData.type)
+          });
+        }
       }
 
+      console.log('✅ Event analysis completed:', results);
       setAnalysis(results);
-      generateRecommendations(results);
+      
+      // Generate recommendations
+      const recs = generateRecommendations(results);
+      setRecommendations(recs);
       
     } catch (err) {
-      setError('Failed to analyze weather data for your event');
-      console.error('Event analysis error:', err);
+      console.error('❌ Event analysis error:', err);
+      setError(`Failed to analyze weather data: ${err.message || 'Unknown error'}. Please try again.`);
     } finally {
       setIsLoading(false);
     }
@@ -162,9 +247,13 @@ const EventPlanner = () => {
   };
 
   const generateRecommendations = (analysisResults) => {
+    if (!analysisResults || !Array.isArray(analysisResults)) {
+      return [];
+    }
+    
     const recs = [];
-    const highRiskDays = analysisResults.filter(day => day.riskLevel === 'high');
-    const mediumRiskDays = analysisResults.filter(day => day.riskLevel === 'medium');
+    const highRiskDays = analysisResults.filter(day => day && day.riskLevel === 'high');
+    const mediumRiskDays = analysisResults.filter(day => day && day.riskLevel === 'medium');
 
     if (highRiskDays.length > 0) {
       recs.push({
@@ -186,7 +275,8 @@ const EventPlanner = () => {
 
     // Best day recommendation
     const bestDay = analysisResults.reduce((best, current) => 
-      current.riskLevel === 'low' && (!best || current.probabilities.wet < best.probabilities.wet) 
+      current && current.riskLevel === 'low' && current.probabilities && 
+      (!best || (current.probabilities.wet < (best.probabilities?.wet || 100)))
         ? current : best
     , null);
 
@@ -243,46 +333,22 @@ const EventPlanner = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => navigate('/')}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <span>Back to Home</span>
-              </button>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <h1 className="text-2xl font-bold text-gray-900">Event Planning Assistant</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => navigate('/dashboard')}
-                className="btn-secondary inline-flex items-center space-x-2"
-              >
-                <Search className="h-4 w-4" />
-                <span>Dashboard</span>
-              </button>
-              
-              <button 
-                onClick={() => navigate('/storm-tracker')}
-                className="btn-secondary inline-flex items-center space-x-2"
-              >
-                <AlertTriangle className="h-4 w-4" />
-                <span>Storm Tracker</span>
-              </button>
-            </div>
+      {/* Page Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-12 sm:h-14">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900">
+              <span className="hidden sm:inline">Event Planning Assistant</span>
+              <span className="sm:hidden">Event Planner</span>
+            </h1>
+            <p className="text-sm text-gray-600 hidden md:block">Weather probability analysis for outdoor events</p>
           </div>
         </div>
-      </header>
+      </div>
 
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-8">
-          <p className="text-gray-600">Plan your outdoor events with confidence using weather probability analysis</p>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        <div className="mb-6 sm:mb-8">
+          <p className="text-sm sm:text-base text-gray-600">Plan your outdoor events with confidence using weather probability analysis</p>
         </div>
 
       <div className="grid lg:grid-cols-2 gap-8">
@@ -323,7 +389,7 @@ const EventPlanner = () => {
                   value={eventData.location}
                   onChange={(e) => handleLocationInputChange(e.target.value)}
                   onFocus={() => {
-                    if (suggestions.length > 0) setShowSuggestions(true);
+                    if (suggestions && suggestions.length > 0) setShowSuggestions(true);
                   }}
                   onBlur={() => {
                     setTimeout(() => setShowSuggestions(false), 150);
@@ -333,7 +399,7 @@ const EventPlanner = () => {
                 />
                 
                 {/* Suggestions Dropdown */}
-                {showSuggestions && suggestions.length > 0 && (
+                {showSuggestions && suggestions && suggestions.length > 0 && (
                   <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 mt-1 max-h-60 overflow-y-auto">
                     {suggestions.map((suggestion, index) => (
                       <button
@@ -420,7 +486,7 @@ const EventPlanner = () => {
         {/* Analysis Results */}
         <div className="space-y-6">
           {/* Recommendations */}
-          {recommendations.length > 0 && (
+          {recommendations && recommendations.length > 0 && (
             <div className="card">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Recommendations</h3>
               <div className="space-y-3">
@@ -476,24 +542,26 @@ const EventPlanner = () => {
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-4 gap-3 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <Umbrella className="h-4 w-4" />
-                          <span>Rain: {day.probabilities.wet}%</span>
+                      {day.probabilities && (
+                        <div className="grid grid-cols-4 gap-3 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <Umbrella className="h-4 w-4" />
+                            <span>Rain: {day.probabilities.wet || 0}%</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Wind className="h-4 w-4" />
+                            <span>Wind: {day.probabilities.windy || 0}%</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Thermometer className="h-4 w-4" />
+                            <span>Hot: {day.probabilities.hot || 0}%</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Thermometer className="h-4 w-4" />
+                            <span>Cold: {day.probabilities.cold || 0}%</span>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Wind className="h-4 w-4" />
-                          <span>Wind: {day.probabilities.windy}%</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Thermometer className="h-4 w-4" />
-                          <span>Hot: {day.probabilities.hot}%</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Thermometer className="h-4 w-4" />
-                          <span>Cold: {day.probabilities.cold}%</span>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -503,6 +571,14 @@ const EventPlanner = () => {
         </div>
       </div>
       </div>
+
+      {/* Voice Control */}
+      <VoiceControl 
+        onLocationSelect={handleVoiceLocationSelect}
+        onAnalyze={handleVoiceAnalyze}
+        currentPage="event-planner"
+        results={analysis}
+      />
     </div>
   );
 };

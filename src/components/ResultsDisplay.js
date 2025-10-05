@@ -479,14 +479,14 @@ const ResultsDisplay = ({ results }) => {
             </div>
             
             {/* Cross-validation Results */}
-            {results.enhancedAnalysis.crossValidation?.precipitation && (
+            {results.enhancedAnalysis?.crossValidation?.precipitation && (
               <div className="bg-white p-3 rounded-lg border">
                 <h5 className="font-medium text-gray-900 mb-2 text-sm">Precipitation Data Cross-Validation</h5>
-                <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="grid grid-cols-2 gap-4 text-xs mb-2">
                   <div>
                     <p className="text-gray-600">NASA POWER vs GPM IMERG</p>
                     <p className="font-medium">
-                      Correlation: {(results.enhancedAnalysis.crossValidation.precipitation.correlation * 100).toFixed(1)}%
+                      Correlation: {results.enhancedAnalysis.crossValidation.precipitation.correlation}%
                     </p>
                   </div>
                   <div>
@@ -495,12 +495,35 @@ const ResultsDisplay = ({ results }) => {
                       results.enhancedAnalysis.crossValidation.precipitation.agreement === 'excellent' ? 'text-green-600' :
                       results.enhancedAnalysis.crossValidation.precipitation.agreement === 'good' ? 'text-blue-600' :
                       results.enhancedAnalysis.crossValidation.precipitation.agreement === 'moderate' ? 'text-yellow-600' :
+                      results.enhancedAnalysis.crossValidation.precipitation.agreement === 'partial data' ? 'text-orange-600' :
                       'text-red-600'
                     }`}>
                       {results.enhancedAnalysis.crossValidation.precipitation.agreement}
                     </p>
                   </div>
                 </div>
+                
+                {/* Status Message */}
+                {results.enhancedAnalysis.crossValidation.precipitation.message && (
+                  <div className={`p-2 rounded text-xs ${
+                    results.enhancedAnalysis.crossValidation.precipitation.status === 'both_missing' ? 'bg-red-50 text-red-700 border border-red-200' :
+                    results.enhancedAnalysis.crossValidation.precipitation.status === 'power_missing' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
+                    results.enhancedAnalysis.crossValidation.precipitation.status === 'gpm_missing' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
+                    'bg-blue-50 text-blue-700 border border-blue-200'
+                  }`}>
+                    <div className="flex items-start space-x-1">
+                      <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <span>{results.enhancedAnalysis.crossValidation.precipitation.message}</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Data Points Info */}
+                {results.enhancedAnalysis.crossValidation.precipitation.dataPoints > 0 && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    Analysis based on {results.enhancedAnalysis.crossValidation.precipitation.dataPoints} data points
+                  </div>
+                )}
               </div>
             )}
           </div>
