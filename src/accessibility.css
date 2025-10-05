@@ -1,0 +1,340 @@
+/* Accessibility Styles for Weather App */
+
+/* High Contrast Mode */
+.high-contrast {
+  --primary-50: #000000;
+  --primary-100: #1a1a1a;
+  --primary-200: #333333;
+  --primary-300: #4d4d4d;
+  --primary-400: #666666;
+  --primary-500: #ffffff;
+  --primary-600: #ffffff;
+  --primary-700: #ffffff;
+  --primary-800: #ffffff;
+  --primary-900: #ffffff;
+}
+
+.high-contrast * {
+  color: #ffffff !important;
+  background-color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+.high-contrast .bg-white {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.high-contrast .bg-gray-50,
+.high-contrast .bg-gray-100 {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+.high-contrast .text-gray-600,
+.high-contrast .text-gray-700,
+.high-contrast .text-gray-800,
+.high-contrast .text-gray-900 {
+  color: #ffffff !important;
+}
+
+.high-contrast .border-gray-200,
+.high-contrast .border-gray-300 {
+  border-color: #ffffff !important;
+}
+
+.high-contrast button {
+  background-color: #333333 !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+}
+
+.high-contrast button:hover {
+  background-color: #666666 !important;
+}
+
+.high-contrast .btn-primary {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.high-contrast .btn-primary:hover {
+  background-color: #cccccc !important;
+}
+
+/* Large Text Mode */
+.large-text {
+  font-size: 18px !important;
+}
+
+.large-text h1 {
+  font-size: 2.5rem !important;
+}
+
+.large-text h2 {
+  font-size: 2rem !important;
+}
+
+.large-text h3 {
+  font-size: 1.75rem !important;
+}
+
+.large-text .text-sm {
+  font-size: 1rem !important;
+}
+
+.large-text .text-xs {
+  font-size: 0.875rem !important;
+}
+
+/* Reduced Motion */
+.reduced-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.reduced-motion .animate-spin,
+.reduced-motion .animate-pulse,
+.reduced-motion .animate-bounce {
+  animation: none !important;
+}
+
+/* Enhanced Focus Indicators */
+.keyboard-navigation *:focus {
+  outline: 3px solid #2563eb !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3) !important;
+}
+
+.high-contrast.keyboard-navigation *:focus {
+  outline: 3px solid #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Voice Control Visual Feedback */
+.voice-listening {
+  animation: pulse-blue 2s infinite;
+}
+
+@keyframes pulse-blue {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+  }
+}
+
+.reduced-motion .voice-listening {
+  animation: none !important;
+  border: 3px solid #2563eb !important;
+}
+
+/* Screen Reader Only Content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip Links */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #000;
+  color: #fff;
+  padding: 8px;
+  text-decoration: none;
+  z-index: 1000;
+  border-radius: 4px;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* Accessible Form Elements */
+.input-field:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+}
+
+.high-contrast .input-field:focus {
+  border-color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Accessible Buttons */
+button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.high-contrast button[disabled] {
+  background-color: #333333 !important;
+  color: #666666 !important;
+  border-color: #666666 !important;
+}
+
+/* Voice Control Panel Accessibility */
+.voice-control-panel {
+  border: 2px solid transparent;
+}
+
+.voice-control-panel:focus-within {
+  border-color: #2563eb;
+}
+
+.high-contrast .voice-control-panel:focus-within {
+  border-color: #ffffff;
+}
+
+/* Tooltip Accessibility */
+[title]:hover::after,
+[aria-label]:hover::after {
+  content: attr(title) attr(aria-label);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.high-contrast [title]:hover::after,
+.high-contrast [aria-label]:hover::after {
+  background: #fff;
+  color: #000;
+  border: 1px solid #000;
+}
+
+/* Mobile Accessibility */
+@media (max-width: 768px) {
+  .large-text {
+    font-size: 20px !important;
+  }
+  
+  .voice-control-panel {
+    bottom: 80px !important;
+    right: 16px !important;
+    left: 16px !important;
+    max-width: none !important;
+  }
+  
+  button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+
+/* Weather Map Accessibility */
+.weather-icon-marker {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.weather-icon-marker:hover {
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+}
+
+.weather-popup-container .leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2) !important;
+}
+
+.weather-popup-container .leaflet-popup-tip {
+  background: white !important;
+}
+
+/* High contrast mode for weather icons */
+.high-contrast .weather-icon-marker div {
+  background: #000000 !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+.high-contrast .weather-popup {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+.high-contrast .weather-popup * {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: #ffffff !important;
+}
+
+/* Large icons for PWD users */
+.large-text .weather-icon-marker div {
+  width: 64px !important;
+  height: 64px !important;
+  font-size: 40px !important;
+}
+
+/* Reduced motion for weather icons */
+.reduced-motion .weather-icon-marker div {
+  transition: none !important;
+}
+
+.reduced-motion .weather-icon-marker:hover div {
+  transform: none !important;
+}
+
+/* Focus indicators for weather map */
+.leaflet-marker-icon:focus {
+  outline: 3px solid #2563eb !important;
+  outline-offset: 2px !important;
+}
+
+.high-contrast .leaflet-marker-icon:focus {
+  outline-color: #ffffff !important;
+}
+
+/* Mobile responsive weather map */
+@media (max-width: 768px) {
+  .weather-icon-marker div {
+    width: 56px !important;
+    height: 56px !important;
+    font-size: 36px !important;
+  }
+  
+  .weather-popup-container {
+    max-width: 280px !important;
+  }
+  
+  .leaflet-popup-content {
+    margin: 8px 12px !important;
+  }
+}
+
+/* Print Accessibility */
+@media print {
+  .voice-control-panel,
+  .accessibility-panel,
+  button {
+    display: none !important;
+  }
+  
+  * {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .leaflet-container {
+    background: white !important;
+  }
+}
